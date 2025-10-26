@@ -1,0 +1,1 @@
+Knees @ -3.00 dB (ref Max): low≈nan Hz, high≈nan Hz (ref_amp=18.6000 V, ref_dB=25.39 dB)

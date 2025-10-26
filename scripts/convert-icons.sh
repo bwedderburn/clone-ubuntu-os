@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bash script to convert build/icon.svg -> PNG set, icon.ico, icon.icns
+# Generate raster icon assets and macOS .icns bundle from build/icon.svg.
 # Usage: ./scripts/convert-icons.sh
 set -euo pipefail
 
@@ -29,7 +29,7 @@ elif command -v rsvg-convert >/dev/null 2>&1; then
     rsvg-convert -w "$s" -h "$s" "$SVG" -o "$PNG_DIR/icon-${s}.png"
   done
 else
-  echo "No SVG -> PNG converter found (magick / inkscape / rsvg-convert). Install one or use the electron-icon-maker fallback."
+  echo "No SVG -> PNG converter found (magick / inkscape / rsvg-convert). Install one or use the optional npx-based fallback."
 fi
 
 # Create .ico (Windows)
@@ -39,7 +39,7 @@ if command -v png2ico >/dev/null 2>&1; then
 elif command -v magick >/dev/null 2>&1; then
   magick convert "$PNG_DIR/icon-16.png" "$PNG_DIR/icon-32.png" "$PNG_DIR/icon-48.png" "$PNG_DIR/icon-64.png" "$PNG_DIR/icon-128.png" "$PNG_DIR/icon-256.png" "$OUT_ICO"
 else
-  echo "png2ico or ImageMagick (magick) not found. Will try electron-icon-maker fallback."
+  echo "png2ico or ImageMagick (magick) not found. Will try optional npx fallback."
 fi
 
 # Create .icns (macOS)
@@ -63,7 +63,7 @@ else
   echo "Not macOS or iconutil not available. Skipping iconutil step for ICNS."
 fi
 
-# electron-icon-maker fallback (cross-platform). This requires Node.js and internet access for npx.
+# Optional Node-based fallback (requires Node.js and internet access for npx).
 if command -v npx >/dev/null 2>&1; then
   echo "Running npx electron-icon-maker fallback (creates icns + ico in build/) ..."
   if [[ -f "$PNG_DIR/icon-1024.png" ]]; then

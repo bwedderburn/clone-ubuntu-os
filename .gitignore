@@ -1,0 +1,14 @@
+# Python / packaging
+.venv/
+__pycache__/
+build/pyinstaller-work/
+build/source-icon.png
+build/source-icon.svg
+dist/
+legacy-dist/
+
+# PyInstaller artifacts
+*.spec
+
+# macOS
+.DS_Store

@@ -1,17 +1,17 @@
 # Icon build helpers
 
-This directory contains a placeholder SVG and cross-platform conversion scripts to generate icon files for the Electron app.
+This directory stores source artwork and generated assets for macOS packaging.
 
-Files included:
-- build/icon.svg — placeholder SVG source
-- scripts/convert-icons.sh — POSIX shell conversion script
-- scripts/convert-icons.ps1 — PowerShell conversion script
+Included files:
+- `build/icon.svg` — placeholder SVG source (replace with your design).
+- `scripts/convert-icons.sh` — POSIX shell conversion script used in the macOS packaging workflow.
+- `scripts/convert-icons.ps1` — optional PowerShell alternative.
 
-How to generate icons locally:
-1. Ensure you have Node.js and one of: ImageMagick (magick), Inkscape, or rsvg-convert. On macOS, iconutil is used to make .icns.
-2. Run the appropriate script for your OS:
-   - macOS / Linux: chmod +x ./scripts/convert-icons.sh && ./scripts/convert-icons.sh
-   - Windows (PowerShell): ./scripts/convert-icons.ps1
-3. The scripts will generate build/png/icon-*.png and produce build/icon.ico and build/icon.icns (if tools are available).
-
-If you want me to also commit the resulting binaries (PNG/ICO/ICNS), run the scripts locally and paste the generated base64 blobs here or grant me permission to push binaries.
+To regenerate icons:
+1. Install one of the supported SVG renderers (`magick`, `inkscape`, or `rsvg-convert`). On macOS the script also relies on `iconutil` for `.icns`.
+2. Run the shell script (or PowerShell variant) from the repository root:
+   ```bash
+   chmod +x scripts/convert-icons.sh
+   scripts/convert-icons.sh
+   ```
+3. PNG icon shards are emitted to `build/png/`, while `build/icon.icns` is used by `scripts/package-macos-app.sh`. Re-run the conversion whenever `icon.svg` changes.

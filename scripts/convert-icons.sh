@@ -43,8 +43,7 @@ else
 fi
 
 # Create .icns (macOS)
-if [[ "
-" = "Darwin" ]]; then
+if [[ "$(uname)" = "Darwin" ]]; then
   echo "Building $OUT_ICNS using iconutil (macOS) ..."
   rm -rf "$ICONSET_DIR"
   mkdir -p "$ICONSET_DIR"

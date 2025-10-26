@@ -1,0 +1,59 @@
+name: Build macOS .icns from source icon
+on:
+  push:
+    branches:
+      - add/icons
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  make-icns:
+    runs-on: ubuntu-latest
+    name: Generate .icns and PNGs and commit
+    steps:
+      - name: Prevent self-loop
+        run: |
+          if [ "${{ github.actor }}" = "github-actions[bot]" ] || [ "${{ github.actor }}" = "github-actions" ]; then
+            echo "Triggered by GitHub Actions bot; exiting to avoid loop."
+            exit 0
+          fi
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Install dependencies for conversion fallback
+        run: |
+          # install electron-icon-maker so npx fallback can run reliably
+          npm i --no-save electron-icon-maker@^1.0.0 || true
+
+      - name: Make conversion script executable
+        run: chmod +x ./scripts/make-icns.sh || true
+
+      - name: Run conversion
+        run: |
+          ./scripts/make-icns.sh || true
+
+      - name: Show generated files
+        run: |
+          ls -la build || true
+          ls -la build/png || true
+
+      - name: Commit and push generated icons
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A build/png || true
+          git add -A build/icon.icns || true
+          git add -A build/icon.ico || true
+          if git diff --staged --quiet; then
+            echo "No icon changes to commit"
+            exit 0
+          fi
+          git commit -m "ci: generate macOS icns and PNG icon assets (automated)"
+          git push origin HEAD:refs/heads/add/icons

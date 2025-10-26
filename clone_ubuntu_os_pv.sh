@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.0.1"
+VERSION="1.0.2"
 LOGFILE="/tmp/clone-ubuntu-os.log"
 
 # ANSI Colors
@@ -21,7 +21,7 @@ spinner() {
     while ps -p $pid > /dev/null 2>&1; do
         local temp=${spinstr#?}
         printf " [%c]  " "$spinstr"
-        local spinstr=$temp${spinstr%"$temp"}
+        spinstr=$temp${spinstr%$temp}
         sleep $delay
         printf "\b\b\b\b\b\b"
     done
@@ -52,6 +52,18 @@ detect_drives() {
     echo -e "${YELLOW}Choose DESTINATION drive (the one to clone TO - will be ERASED):${NC}"
     read -rp "Destination drive (e.g., sda): " DST
     DST_DRIVE="/dev/$DST"
+
+    # Validate that devices exist and are whole disks (not partitions)
+    for d in "$SRC_DRIVE" "$DST_DRIVE"; do
+        if [[ ! -b "$d" ]]; then
+            echo -e "${RED}[!] Device $d does not exist.${NC}"
+            exit 1
+        fi
+        if ! lsblk -dn -o TYPE "$d" | grep -qx disk; then
+            echo -e "${RED}[!] $d is not a disk device (do not use a partition like sda1).${NC}"
+            exit 1
+        fi
+    done
 
     if [[ "$SRC_DRIVE" == "$DST_DRIVE" ]]; then
         echo -e "${RED}[!] Source and destination cannot be the same!${NC}"
@@ -90,7 +102,20 @@ detect_drives() {
 
 update_script() {
     echo -e "${BLUE}=== SELF-UPDATE ===${NC}"
-    REPO_BASE="https://raw.githubusercontent.com/yourusername/clone-ubuntu-os/main"
+    # Determine REPO_BASE from git remote if possible; fallback to env or placeholder
+    REPO_BASE="${REPO_BASE:-}"
+    if command -v git >/dev/null 2>&1; then
+        ORIGIN_URL="$(git config --get remote.origin.url || true)"
+        if [[ "$ORIGIN_URL" =~ ^git@github.com:([^/]+)/([^.]+)(\.git)?$ ]]; then
+            G_USER="${BASH_REMATCH[1]}"; G_REPO="${BASH_REMATCH[2]}"
+        elif [[ "$ORIGIN_URL" =~ ^https://github.com/([^/]+)/([^.]+)(\.git)?$ ]]; then
+            G_USER="${BASH_REMATCH[1]}"; G_REPO="${BASH_REMATCH[2]}"
+        fi
+        if [[ -n "${G_USER:-}" && -n "${G_REPO:-}" ]]; then
+            REPO_BASE="https://raw.githubusercontent.com/$G_USER/$G_REPO/main"
+        fi
+    fi
+    REPO_BASE="${REPO_BASE:-https://raw.githubusercontent.com/yourusername/clone-ubuntu-os/main}"
     VERSION_URL="$REPO_BASE/VERSION"
     SCRIPT_URL="$REPO_BASE/clone_ubuntu_os_pv.sh"
     CHANGELOG_URL="$REPO_BASE/CHANGELOG.md"
@@ -158,11 +183,11 @@ run_clone() {
     spinner $!
 
     echo -e "${BLUE}[*] Creating partitions...${NC}"
-    (sudo parted -s $DST_DRIVE mklabel gpt &&     sudo parted -s $DST_DRIVE mkpart EFI fat32 1MiB 513MiB &&     sudo parted -s $DST_DRIVE set 1 esp on &&     sudo parted -s $DST_DRIVE mkpart UBUNTU ext4 513MiB ${UBUNTU_SIZE}GiB &&     sudo parted -s $DST_DRIVE mkpart STORAGE ${UBUNTU_SIZE}GiB 100%) &
+    (sudo parted -s $DST_DRIVE mklabel gpt && sudo parted -s $DST_DRIVE mkpart EFI fat32 1MiB 513MiB && sudo parted -s $DST_DRIVE set 1 esp on && sudo parted -s $DST_DRIVE mkpart UBUNTU ext4 513MiB ${UBUNTU_SIZE}GiB && sudo parted -s $DST_DRIVE mkpart STORAGE ${UBUNTU_SIZE}GiB 100% && sudo partprobe $DST_DRIVE && sleep 2) &
     spinner $!
 
     echo -e "${BLUE}[*] Formatting partitions...${NC}"
-    (sudo mkfs.vfat -F32 $DST_EFI && sudo mkfs.ext4 -F $DST_ROOT && sudo mkfs.exfat $DST_EXFAT) &
+    (sudo mkfs.vfat -F32 $DST_EFI && sudo mkfs.ext4 -F -L UBUNTU $DST_ROOT && sudo mkfs.exfat -n STORAGE $DST_EXFAT) &
     spinner $!
 
     echo -e "${BLUE}[*] Cloning root filesystem...${NC}"

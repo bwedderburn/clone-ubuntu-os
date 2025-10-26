@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# POSIX shell script to convert build/icon.svg -> PNG set, icon.ico, icon.icns
+# Bash script to convert build/icon.svg -> PNG set, icon.ico, icon.icns
 # Usage: ./scripts/convert-icons.sh
 set -euo pipefail
 

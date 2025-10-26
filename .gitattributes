@@ -1,6 +1,9 @@
-dist/** filter=lfs diff=lfs merge=lfs -text
-.asar filter=lfs diff=lfs merge=lfs -text
+dist/ filter=lfs diff=lfs merge=lfs -text
 .dmg filter=lfs diff=lfs merge=lfs -text
 .zip filter=lfs diff=lfs merge=lfs -text
 .icns filter=lfs diff=lfs merge=lfs -text
+.ico filter=lfs diff=lfs merge=lfs -text
+*.asar filter=lfs diff=lfs merge=lfs -text
+dist/** filter=lfs diff=lfs merge=lfs -text
+.asar filter=lfs diff=lfs merge=lfs -text
 *.ico filter=lfs diff=lfs merge=lfs -text

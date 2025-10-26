@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#60a5fa"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feOffset dx="0" dy="8" result="off"/>
+      <feMerge><feMergeNode in="off"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- rounded rounded-square background -->
+  <rect x="48" y="48" rx="160" ry="160" width="928" height="928" fill="url(#g)" filter="url(#shadow)"/>
+
+  <!-- subtle inner highlight -->
+  <rect x="72" y="72" rx="140" ry="140" width="880" height="880" fill="rgba(255,255,255,0.06)"/>
+
+  <!-- letters -->
+  <g transform="translate(0,12)">
+    <text x="50%" y="54%" text-anchor="middle" font-family="Inter, Roboto, Arial, sans-serif" font-weight="700" font-size="360" fill="#ffffff" fill-opacity="0.98" dy=".35em">TZ</text>
+  </g>
+
+  <!-- small accent circle -->
+  <circle cx="820" cy="200" r="38" fill="#ffd166" />
+</svg>

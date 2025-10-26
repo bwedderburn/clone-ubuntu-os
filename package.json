@@ -1,0 +1,10 @@
+{
+  "name": "multi-tz-clock-electron",
+  "version": "1.0.0",
+  "scripts": {
+    "icons:generate": "bash ./scripts/convert-icons.sh",
+    "icons:generate:win": "pwsh ./scripts/convert-icons.ps1",
+    "icons:maker": "npx --yes electron-icon-maker --input build/png/icon-1024.png --output build --icns --ico"
+  },
+  "devDependencies": {}
+}

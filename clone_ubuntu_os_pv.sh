@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.0.0"
-LOGFILE="/var/log/clone_to_movespeed.log"
+VERSION="1.0.1"
+LOGFILE="/tmp/clone-ubuntu-os.log"
 
 # ANSI Colors
 RED='\033[0;31m'
@@ -58,8 +58,8 @@ detect_drives() {
         exit 1
     fi
 
-    if mount | grep -q "$DST"; then
-        echo -e "${RED}[!] Destination drive $DST_DRIVE is mounted! Please unmount before proceeding.${NC}"
+    if mount | grep -qE "/dev/$(basename "$DST_DRIVE")([0-9]+|$)"; then
+        echo -e "${RED}[!] Destination drive $DST_DRIVE (or its partitions) is mounted! Please unmount before proceeding.${NC}"
         exit 1
     fi
 
@@ -77,18 +77,24 @@ detect_drives() {
 
     SRC_ROOT=$(findmnt -no SOURCE /)
     SRC_EFI=$(findmnt -no SOURCE /boot/efi || true)
-    DST_ROOT="${DST_DRIVE}2"
-    DST_EFI="${DST_DRIVE}1"
-    DST_EXFAT="${DST_DRIVE}3"
+    # Handle partition suffix for NVMe/mmc (e.g., /dev/nvme0n1p1)
+    if [[ "$DST_DRIVE" =~ [0-9]$ ]]; then
+        PART_PREFIX="${DST_DRIVE}p"
+    else
+        PART_PREFIX="$DST_DRIVE"
+    fi
+    DST_EFI="${PART_PREFIX}1"
+    DST_ROOT="${PART_PREFIX}2"
+    DST_EXFAT="${PART_PREFIX}3"
 }
 
 update_script() {
     echo -e "${BLUE}=== SELF-UPDATE ===${NC}"
-    REPO_BASE="https://raw.githubusercontent.com/yourusername/clone-to-movespeed/main"
+    REPO_BASE="https://raw.githubusercontent.com/yourusername/clone-ubuntu-os/main"
     VERSION_URL="$REPO_BASE/VERSION"
-    SCRIPT_URL="$REPO_BASE/clone_to_movespeed_pv.sh"
+    SCRIPT_URL="$REPO_BASE/clone_ubuntu_os_pv.sh"
     CHANGELOG_URL="$REPO_BASE/CHANGELOG.md"
-    TMP_FILE="/tmp/clone_to_movespeed_pv.sh"
+    TMP_FILE="/tmp/clone_ubuntu_os_pv.sh"
 
     echo -e "${BLUE}[*] Checking latest version...${NC}"
     REMOTE_VERSION=$(curl -fsSL "$VERSION_URL" || echo "")
@@ -138,6 +144,10 @@ run_clone() {
 
     read -rp "Enter Ubuntu partition size in GB (default 128): " UBUNTU_SIZE
     UBUNTU_SIZE=${UBUNTU_SIZE:-128}
+    if ! [[ "$UBUNTU_SIZE" =~ ^[0-9]+$ ]] || [ "$UBUNTU_SIZE" -lt 16 ]; then
+        echo -e "${RED}[!] Invalid size. Please enter an integer >= 16.${NC}"
+        exit 1
+    fi
 
     echo -e "${BLUE}[*] Installing required packages...${NC}"
     (sudo apt update && sudo apt install -y gparted rsync exfatprogs efibootmgr pv curl) &
@@ -159,9 +169,14 @@ run_clone() {
     (sudo mkdir -p /mnt/src /mnt/dst &&     sudo mount $SRC_ROOT /mnt/src &&     sudo mount $DST_ROOT /mnt/dst &&     sudo rsync -aAXH --info=progress2 /mnt/src/ /mnt/dst/) &
     spinner $!
 
-    echo -e "${BLUE}[*] Cloning EFI partition...${NC}"
-    (sudo mkdir -p /mnt/efi-old /mnt/efi-new &&     sudo mount $SRC_EFI /mnt/efi-old &&     sudo mount $DST_EFI /mnt/efi-new &&     sudo rsync -aAXH --info=progress2 /mnt/efi-old/ /mnt/efi-new/) &
-    spinner $!
+    if [[ -n "$SRC_EFI" ]]; then
+        echo -e "${BLUE}[*] Cloning EFI partition...${NC}"
+        (sudo mkdir -p /mnt/efi-old /mnt/efi-new && sudo mount $SRC_EFI /mnt/efi-old && sudo mount $DST_EFI /mnt/efi-new && sudo rsync -aAXH --info=progress2 /mnt/efi-old/ /mnt/efi-new/) &
+        spinner $!
+    else
+        echo -e "${YELLOW}[!] No source EFI detected; creating fresh EFI only.${NC}"
+        sudo mkdir -p /mnt/dst/boot/efi && sudo mount $DST_EFI /mnt/dst/boot/efi || true
+    fi
 
     echo -e "${BLUE}[*] Installing GRUB bootloader...${NC}"
     (sudo mkdir -p /mnt/dst/boot/efi && sudo mount $DST_EFI /mnt/dst/boot/efi &&     for dir in /dev /dev/pts /proc /sys /run; do sudo mount --bind $dir /mnt/dst$dir; done &&     sudo chroot /mnt/dst grub-install $DST_DRIVE && sudo chroot /mnt/dst update-grub) &
@@ -186,28 +201,27 @@ menu() {
     echo -e "${BLUE} Version: $VERSION${NC}"
     echo -e "${BLUE}=============================================${NC}"
     echo -e "${YELLOW}1) Run Full Clone${NC}"
-    echo -e "${YELLOW}2) Dry Run (simulate only)${NC}"
-    echo -e "${YELLOW}3) Show Status (drives, partitions, mounts)${NC}"
+    echo -e "${YELLOW}2) Show Status (drives, partitions, mounts)${NC}"
+    echo -e "${YELLOW}3) Update Script (fetch latest version)${NC}"
     echo -e "${YELLOW}4) Exit${NC}"
-    echo -e "${YELLOW}5) Safe Mode (read-only verification)${NC}"
-    echo -e "${YELLOW}6) Backup Only (make compressed image, no writing)${NC}"
-    echo -e "${YELLOW}7) Restore Mode (write backup image to target drive)${NC}"
-    echo -e "${YELLOW}8) Update Script (fetch latest version)${NC}"
     echo -e "${BLUE}=============================================${NC}"
-    read -rp "Choose an option [1-8]: " choice
+    read -rp "Choose an option [1-4]: " choice
+}
+
+show_status() {
+    echo -e "${BLUE}[*] Drives and partitions:${NC}"
+    lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINTS,MODEL
+    echo -e "${BLUE}[*] Mounted filesystems:${NC}"
+    findmnt -rno SOURCE,TARGET | sort || true
 }
 
 while true; do
     menu
     case $choice in
         1) run_clone; break;;
-        2) dry_run; break;;
-        3) show_status;;
+        2) show_status;;
+        3) update_script;;
         4) echo -e "${GREEN}Exiting.${NC}"; exit 0;;
-        5) safe_mode;;
-        6) backup_only;;
-        7) restore_mode;;
-        8) update_script;;
-        *) echo -e "${RED}Invalid choice, please select 1-8.${NC}";;
+        *) echo -e "${RED}Invalid choice, please select 1-4.${NC}";;
     esac
 done

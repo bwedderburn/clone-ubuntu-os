@@ -6,5 +6,5 @@
     "icons:generate:win": "pwsh ./scripts/convert-icons.ps1",
     "icons:maker": "npx --yes electron-icon-maker --input build/png/icon-1024.png --output build --icns --ico"
   },
-  "devDependencies": {}
+  "main": "main.js"
 }

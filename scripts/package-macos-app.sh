@@ -9,6 +9,7 @@ ENTRY_POINT="src/sample_app/__main__.py"
 ICON_PATH="build/icon.icns"
 DIST_DIR="dist/macos"
 WORK_DIR="build/pyinstaller-work"
+PY_PATHS=("src")
 
 usage() {
   cat <<'EOF'
@@ -19,6 +20,7 @@ Options:
   -e ENTRY    Python entry file to package (default: src/sample_app/__main__.py)
   -i ICON     Path to .icns icon file (default: build/icon.icns)
   -o OUTDIR   Output directory for the .app bundle (default: dist/macos)
+  -p PATH     Additional sys.path entry passed to PyInstaller (repeatable)
   -h          Show this help message
 
 Environment:
@@ -28,12 +30,13 @@ The script expects PyInstaller to be installed (pip install -r requirements-dev.
 EOF
 }
 
-while getopts ":n:e:i:o:h" opt; do
+while getopts ":n:e:i:o:p:h" opt; do
   case "$opt" in
     n) APP_NAME="$OPTARG" ;;
     e) ENTRY_POINT="$OPTARG" ;;
     i) ICON_PATH="$OPTARG" ;;
     o) DIST_DIR="$OPTARG" ;;
+    p) PY_PATHS+=("$OPTARG") ;;
     h) usage; exit 0 ;;
     :) echo "Missing value for -$OPTARG" >&2; usage; exit 1 ;;
     \?) echo "Unknown option: -$OPTARG" >&2; usage; exit 1 ;;
@@ -68,17 +71,27 @@ TEMP_BUILD="$WORK_DIR/build"
 rm -rf "$TEMP_DIST" "$TEMP_BUILD" 2>/dev/null || true
 
 echo "Packaging '$APP_NAME' from $ENTRY_POINT ..."
-pyinstaller \
-  --noconfirm \
-  --windowed \
-  --name "$APP_BUNDLE_NAME" \
-  --icon "$ICON_PATH" \
-  --paths src \
-  --distpath "$TEMP_DIST" \
-  --workpath "$TEMP_BUILD" \
-  --specpath "$WORK_DIR" \
-  ${PYINSTALLER_FLAGS:-} \
-  "$ENTRY_POINT"
+PYI_ARGS=(
+  --noconfirm
+  --windowed
+  --name "$APP_BUNDLE_NAME"
+  --icon "$ICON_PATH"
+  --distpath "$TEMP_DIST"
+  --workpath "$TEMP_BUILD"
+  --specpath "$WORK_DIR"
+)
+
+for path_entry in "${PY_PATHS[@]}"; do
+  PYI_ARGS+=(--paths "$path_entry")
+done
+
+if [[ -n "${PYINSTALLER_FLAGS:-}" ]]; then
+  # shellcheck disable=SC2206
+  EXTRA_FLAGS=(${PYINSTALLER_FLAGS})
+  PYI_ARGS+=("${EXTRA_FLAGS[@]}")
+fi
+
+pyinstaller "${PYI_ARGS[@]}" "$ENTRY_POINT"
 
 APP_SOURCE="$TEMP_DIST/$APP_BUNDLE_NAME.app"
 if [[ ! -d "$APP_SOURCE" ]]; then

@@ -26,17 +26,49 @@ This repository packages a modularised Python GUI into a standalone macOS `.app`
      -n "My GUI" \
      -e src/sample_app/__main__.py \
      -i build/icon.icns
-   ```
-   Update `-e` to match your package’s main script. The bundle lands in `dist/macos/`.
+ ```
+  Update `-e` to match your package’s main script. The bundle lands in `dist/macos/`.
 5. **Smoke-test** the generated `*.app` directly from Finder or via:
+  ```bash
+  open dist/macos/MyGUI.app
+  ```
+
+## Bundling the amp-benchkit Unified GUI
+This repository is pre-configured to turn the `unified_gui_layout.py` application from the adjacent `amp-benchkit` project into a macOS app bundle.
+
+1. Clone the GUI source next to this repo (already present in `../amp-benchkit`).
+2. Create and activate a virtual environment, then install dependencies:
    ```bash
-   open dist/macos/MyGUI.app
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements-dev.txt
+   pip install -r ../amp-benchkit/requirements.txt
+   pip install -e ../amp-benchkit
    ```
+3. Update the branding in `build/icon.svg` if desired and regenerate assets:
+   ```bash
+   scripts/convert-icons.sh
+   ```
+4. Package the GUI:
+   ```bash
+   scripts/package-unified-gui.sh
+   ```
+   Pass extra PyInstaller switches via `PYINSTALLER_FLAGS` (e.g. `--hidden-import` entries) if you need to tweak the build.
+5. Launch the bundle for verification:
+   ```bash
+   open "dist/unified-gui/Unified Control Lite+U3.app"
+   ```
+
+You can still run the Python sources directly for debugging:
+```bash
+PYTHONPATH=../amp-benchkit python ../amp-benchkit/unified_gui_layout.py --gui
+```
 
 ## Project Layout
 - `src/sample_app/` – Minimal Tkinter clock demonstrating a package-style GUI.
 - `scripts/convert-icons.sh` – Converts `build/icon.svg` into PNG shards and `.icns`.
-- `scripts/package-macos-app.sh` – Wraps PyInstaller with sensible defaults for macOS.
+- `scripts/package-macos-app.sh` – Wraps PyInstaller with sensible defaults for custom apps.
+- `scripts/package-unified-gui.sh` – Turn `../amp-benchkit/unified_gui_layout.py` into a macOS bundle.
 - `build/` – Icon sources and generated assets (safe to regenerate).
 - `dist/macos/` – Output directory for packaged `.app` bundles.
 
@@ -46,6 +78,7 @@ This repository packages a modularised Python GUI into a standalone macOS `.app`
   ```bash
   PYINSTALLER_FLAGS="--add-data resources:resources" scripts/package-macos-app.sh -e src/my_app/main.py
   ```
+- To reuse the amp-benchkit packaging script with another entry point, call `scripts/package-macos-app.sh` and add `-p` flags for every additional source directory that PyInstaller should index.
 - Signing and notarisation are out of scope; run Apple’s `codesign` and `notarytool` afterwards if you plan to distribute beyond local machines.
 
 ## License
